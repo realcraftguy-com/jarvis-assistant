@@ -291,7 +291,7 @@ public final class Brain implements Telegram.Handler {
 
     // ================================================================== telegram input
 
-    @Override public void onOwnerMessage(String text, long messageId, Long replyTo) {
+    @Override public void onOwnerMessage(String text, long messageId, Long replyTo, boolean spoken) {
         db.log("I", "telegram", "Nachricht vom Boss erhalten");
         // a reply to a question message is an answer to exactly that question
         if (replyTo != null) {
@@ -305,9 +305,26 @@ public final class Brain implements Telegram.Handler {
         if (lower.equals("/pause") || lower.equals("pause")) { Cfg.setPaused(ctx, true); sendDirect("Pausiert. Ich tue nichts mehr von selbst, bis du „weiter“ schreibst."); return; }
         if (lower.equals("/weiter") || lower.equals("weiter") || lower.equals("/resume")) { Cfg.setPaused(ctx, false); Outbox.enqueue(ctx, "resume:" + messageId, "Bin wieder da.", null, null); return; }
         if (lower.equals("/status")) { Outbox.enqueue(ctx, "status:" + messageId, statusText(), null, null); return; }
-        new Telegram(ctx).sendChatAction("typing");
-        String reply = agent.respond("telegram", text, null);
-        Outbox.enqueue(ctx, "reply:" + messageId, reply, null, null);
+        String mode = Cfg.get(ctx, "voice_replies");
+        boolean voice = Secrets.has(ctx, Secrets.GEMINI) && ("immer".equals(mode) || (spoken && !"aus".equals(mode)));
+        // keep "schreibt …" / "nimmt Sprachnachricht auf …" visible until the answer is there (Telegram shows it ~5 s)
+        Telegram tg = new Telegram(ctx);
+        boolean[] working = {true};
+        Thread typing = new Thread(() -> {
+            while (working[0]) {
+                tg.sendChatAction(voice ? "record_voice" : "typing");
+                try { Thread.sleep(4500); } catch (InterruptedException e) { return; }
+            }
+        }, "tg-typing");
+        typing.setDaemon(true);
+        typing.start();
+        try {
+            String reply = agent.respond("telegram", text, null);
+            if (!voice || !Voice.reply(ctx, reply)) Outbox.enqueue(ctx, "reply:" + messageId, reply, null, null);
+        } finally {
+            working[0] = false;
+            typing.interrupt();
+        }
     }
 
     @Override public void onOwnerButton(String data, long messageId, String callbackId) {

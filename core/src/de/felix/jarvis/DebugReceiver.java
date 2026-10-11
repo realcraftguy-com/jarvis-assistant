@@ -89,6 +89,7 @@ public class DebugReceiver extends BroadcastReceiver {
                         out = "persona " + all.length();
                         break;
                     }
+                    case "voicetest": out = Voice.reply(c, text == null ? "[TEST] Kurzer Stimmtest von Jarvis." : text) ? "gesendet" : "fehlgeschlagen"; break;
                     case "tool": { JSONObject a = new JSONObject(text); out = Brain.get(c).agent.run(a.getString("name"), a.getJSONObject("args")); break; }
                     case "claudehealth": { JSONObject h = new ClaudeBridge(c).health(true); out = h == null ? "nicht erreichbar" : h.toString(); break; }
                     case "sendapp": {

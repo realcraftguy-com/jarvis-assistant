@@ -94,6 +94,27 @@ public final class Telegram {
         } catch (Exception ignored) {}
     }
 
+    /** Voice message (OGG/Opus) to the owner, optional caption. */
+    public void sendVoice(java.io.File f, String caption, int durationMs) throws Exception {
+        String chat = db.kv("tg_owner_chat", null);
+        if (chat == null) throw new IllegalStateException("Telegram noch nicht gekoppelt");
+        String boundary = "----jarvis" + System.nanoTime();
+        java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream ps = new java.io.PrintStream(bo, true, "UTF-8");
+        ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n" + chat + "\r\n");
+        ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"duration\"\r\n\r\n" + Math.max(1, durationMs / 1000) + "\r\n");
+        if (caption != null) ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n" + caption + "\r\n");
+        ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"voice\"; filename=\"jarvis.ogg\"\r\nContent-Type: audio/ogg\r\n\r\n");
+        ps.flush();
+        bo.write(java.nio.file.Files.readAllBytes(f.toPath()));
+        ps.print("\r\n--" + boundary + "--\r\n");
+        ps.flush();
+        java.util.HashMap<String, String> h = new java.util.HashMap<>();
+        h.put("Content-Type", "multipart/form-data; boundary=" + boundary);
+        Http.Resp r = Http.request("POST", API + token() + "/sendVoice", h, bo.toByteArray(), 60000);
+        if (!r.ok()) throw new Exception("Telegram sendVoice HTTP " + r.code + " " + SchoolPipeline.shorten(r.body, 120));
+    }
+
     /** Sends a file (e.g. the call app APK) to the owner. */
     public void sendDocument(java.io.File f, String caption) throws Exception {
         String chat = db.kv("tg_owner_chat", null);
@@ -118,7 +139,7 @@ public final class Telegram {
     // ---------------------------------------------------------------- receiving
 
     public interface Handler {
-        void onOwnerMessage(String text, long messageId, Long replyToMessageId);
+        void onOwnerMessage(String text, long messageId, Long replyToMessageId, boolean spoken);
         void onOwnerButton(String data, long messageId, String callbackId);
     }
 
@@ -201,7 +222,7 @@ public final class Telegram {
             Outbox.enqueue(ctx, "nontext:" + m.getLong("message_id"), "Ich kann hier Text und Sprachnachrichten lesen, Bilder und Dateien noch nicht.", null, null);
             return;
         }
-        h.onOwnerMessage(text, m.getLong("message_id"), replyTo);
+        h.onOwnerMessage(text, m.getLong("message_id"), replyTo, voice != null && m.optString("text", "").isEmpty());
     }
 
     private void strangerLog(String from) {
