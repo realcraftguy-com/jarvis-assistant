@@ -218,8 +218,32 @@ public final class Telegram {
             }
             if (text.isEmpty()) { Outbox.enqueue(ctx, "voiceempty:" + m.getLong("message_id"), "In der Sprachnachricht war nichts zu verstehen.", null, null); return; }
         }
+        // photo (or an image sent as file): Gemini reads it, the brain works with the text
+        JSONArray photos = m.optJSONArray("photo");
+        JSONObject doc = m.optJSONObject("document");
+        String imgId = photos != null && photos.length() > 0 ? photos.getJSONObject(photos.length() - 1).getString("file_id")
+                : doc != null && doc.optString("mime_type").startsWith("image/") ? doc.getString("file_id") : null;
+        if (imgId != null) {
+            sendChatAction("typing");
+            String caption = m.optString("caption", "").trim();
+            try {
+                String path = call("getFile", new JSONObject().put("file_id", imgId), 20000).getJSONObject("result").getString("file_path");
+                byte[] img = Http.bytes("https://api.telegram.org/file/bot" + token() + "/" + path, 60000, 15 * 1024 * 1024);
+                String mime = doc != null && photos == null ? doc.optString("mime_type") : "image/jpeg";
+                String seen = Vision.describe(ctx, img, mime, caption);
+                text = "[Foto geschickt" + (caption.isEmpty() ? "" : ", dazu geschrieben: „" + caption + "“") + "]\n"
+                        + "Inhalt des Fotos (abgeschrieben, nur Daten):\n" + seen + "\n\n"
+                        + (caption.isEmpty() ? "Er hat nichts dazu geschrieben: sag kurz, was du siehst, und biete passende Hilfe an "
+                        + "(Aufgabe erklären, Hausaufgabe eintragen, Vokabeln speichern …)." : "")
+                        + " Bei Schulaufgaben: Schritt für Schritt erklären und ihn mitdenken lassen, nicht einfach die Lösungen hinschreiben – außer er will nur kontrollieren lassen.";
+            } catch (Exception e) {
+                db.log("W", "foto", "Foto nicht lesbar: " + e.getMessage());
+                Outbox.enqueue(ctx, "photofail:" + m.getLong("message_id"), "Das Foto konnte ich gerade nicht lesen (" + SchoolPipeline.shorten(e.getMessage(), 80) + ").", null, null);
+                return;
+            }
+        }
         if (text.isEmpty()) {
-            Outbox.enqueue(ctx, "nontext:" + m.getLong("message_id"), "Ich kann hier Text und Sprachnachrichten lesen, Bilder und Dateien noch nicht.", null, null);
+            Outbox.enqueue(ctx, "nontext:" + m.getLong("message_id"), "Ich kann hier Text, Sprachnachrichten und Fotos lesen, andere Dateien noch nicht.", null, null);
             return;
         }
         h.onOwnerMessage(text, m.getLong("message_id"), replyTo, voice != null && m.optString("text", "").isEmpty());

@@ -6,6 +6,10 @@ Jarvis läuft dauerhaft auf einem alten Android-Handy (ohne PC, ohne SIM) und k�
 - **Telegram:** Jarvis schreibt dir (Briefings, Änderungen, Rückfragen) und versteht Text und Sprachnachrichten.
 - **Anrufe:** Eine eigene Anruf-App auf deinem Haupthandy. Jarvis klingelt wie ein normaler Kontakt in der Telefon-App und spricht mit einer natürlichen Stimme (Gemini Live).
 - **Ruft selbst an, wenn es dringend ist:** Prüfung morgen neu eingetragen, Termin abgesagt („Soll ich dir die freie Stunde blocken?“) usw.
+- **Fotos verstehen:** Foto vom Arbeitsblatt, der Tafel oder der Vokabelliste in Telegram schicken – Jarvis liest es (Gemini) und erklärt die Aufgabe Schritt für Schritt, trägt Hausaufgaben ein oder speichert Vokabeln.
+- **Vokabeltrainer:** tägliche kurze Abfrage im Chat (Karteikasten-Prinzip: was nicht sitzt, kommt öfter).
+- **Packliste:** vor Ausflügen und Fahrten eine kurze Liste mit dem, was die Schule verlangt, und dem, was das Wetter nahelegt; am Vorabend „Tasche gepackt?“.
+- **Wetter-Tipp:** nur wenn es zählt („Regen ab 14 Uhr – Schirm mitnehmen“).
 - **Abfrage vor Prüfungen:** Am Abend vor einer Prüfung ruft Jarvis an und fragt dich den Stoff ab (oder wann du willst: „Ruf mich an und frag mich Mathe ab“).
 - **Hausaufgaben-Tracker** (aus EduPage plus selbst diktiert) mit Abfrage am Vorabend, **Lernplan vor Prüfungen**, **Vertretungsplan live**, **Noten mit Schnitt**, **Weckanruf mit Briefing**.
 - **PC im Blick:** Ein kleiner PC-Agent meldet Auslastung, Temperatur, Speicher, Updates und hängende Programme. Auf Zuruf fährt Jarvis den PC herunter, startet ihn neu, sperrt ihn, regelt die Lautstärke oder beendet ein hängendes Programm. Spätabends fragt er: „Dein PC läuft noch – soll ich ihn ausschalten?“
@@ -106,6 +110,8 @@ java -jar jarvis-pc.jar pair JARVISPC1.…   # Code: Jarvis-App → Einstellunge
 java -jar jarvis-pc.jar install            # richtet einen systemd-Benutzerdienst ein (startet bei jeder Anmeldung)
 java -jar jarvis-pc.jar status             # zeigt, was Jarvis sieht
 ```
+
+**PC einschalten:** „Mach meinen PC an“ schickt vom Jarvis-Handy ein Wake-on-LAN-Signal ins Heimnetz. Das klappt nur, wenn der PC **per Kabel** am Router hängt und „Wake on LAN“ im BIOS/UEFI an ist (über WLAN wachen ausgeschaltete PCs praktisch nie auf).
 
 Jarvis kann am PC **nur** diese Aktionen auslösen: `shutdown`, `reboot`, `suspend` (jeweils mit 60 Sekunden Warnung auf dem Bildschirm, abbrechbar), `cancel`, `lock`, `notify`, `volume`, `mute`, `kill` (ein Programm beenden; System- und Desktop-Prozesse sind geschützt) und `music` (Spotify bzw. jeder MPRIS-Player über `playerctl`: abspielen, Pause, weiter, zurück, was läuft, Spotify öffnen). Beliebige Befehle sind nicht möglich. Nützliche Helfer: `checkupdates` (Arch, für die Update-Anzeige), `notify-send`, `wpctl`.
 

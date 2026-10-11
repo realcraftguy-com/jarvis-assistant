@@ -102,6 +102,8 @@ final class Briefing {
                     .append(t.getAsLong("due") != null ? ", fällig " + Brain.fmt(t.getAsLong("due")) : "").append("\n");
 
         b.append("\n== Wetter ==\n").append(Tools.weather(day.toString())).append("\n");
+        String notable = Tools.weatherNotable(day.toString());
+        if (notable != null) b.append("Wichtig fürs Wetter (einen kurzen Satz dazu schreiben): ").append(notable).append("\n");
 
         b.append("\n== Probleme bei Jarvis ==\n").append(problems());
         return b.toString();

@@ -302,6 +302,18 @@ public final class PcAgent {
         }
         s.put("top", top);
         if (updates >= 0) s.put("updates", updates);
+        // network cards (for "switch the PC on" via Wake-on-LAN from the phone)
+        JSONArray nics = new JSONArray();
+        File[] net = new File("/sys/class/net").listFiles();
+        if (net != null) for (File nic : net) {
+            if (!new File(nic, "device").exists()) continue; // only physical cards
+            try {
+                String mac = read(nic + "/address").trim();
+                boolean wired = new File(nic, "wireless").exists() ? false : nic.getName().matches("(en|eth).*");
+                nics.put(new JSONObject().put("if", nic.getName()).put("mac", mac).put("wired", wired).put("up", read(nic + "/operstate").trim().equals("up")));
+            } catch (Exception ignored) {}
+        }
+        s.put("nics", nics);
         return s;
     }
 

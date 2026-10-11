@@ -182,6 +182,7 @@ public final class PcLink {
     /** One of the fixed actions. */
     public String action(String action, String value) {
         if (!paired()) return "Kein PC gekoppelt.";
+        if ("wake".equals(action)) return wake();
         if (!action.matches("shutdown|reboot|suspend|cancel|lock|notify|volume|mute|kill|music")) return "Diese Aktion kann ich am PC nicht ausführen.";
         if (!online() && !"cancel".equals(action)) return "Der PC scheint aus zu sein (letztes Lebenszeichen " + Brain.fmt(db.kvLong("pc_seen_at", 0)) + ").";
         try {
@@ -193,6 +194,55 @@ public final class PcLink {
         } catch (Exception e) {
             return "Ging nicht: " + e.getMessage();
         }
+    }
+
+    // ---------------------------------------------------------------- wake-on-LAN
+
+    /** Magic packet from the phone into the home network; reports when the PC is up (or why it probably did not work). */
+    String wake() {
+        if (online()) return "Der PC ist schon an.";
+        String raw = db.kv("pc_status", null);
+        List<String[]> macs = new ArrayList<>();
+        try {
+            JSONArray n = new JSONObject(raw).optJSONArray("nics");
+            for (int i = 0; n != null && i < n.length(); i++) macs.add(new String[]{n.getJSONObject(i).getString("mac"), String.valueOf(n.getJSONObject(i).optBoolean("wired"))});
+        } catch (Exception ignored) {}
+        if (macs.isEmpty()) return "Ich kenne die Netzwerkadresse des PCs noch nicht – sie kommt mit dem nächsten Status, wenn er an ist.";
+        int sent = 0;
+        try (java.net.DatagramSocket sock = new java.net.DatagramSocket()) {
+            sock.setBroadcast(true);
+            List<java.net.InetAddress> targets = new ArrayList<>();
+            targets.add(java.net.InetAddress.getByName("255.255.255.255"));
+            for (java.util.Enumeration<java.net.NetworkInterface> e = java.net.NetworkInterface.getNetworkInterfaces(); e.hasMoreElements(); ) {
+                for (java.net.InterfaceAddress ia : e.nextElement().getInterfaceAddresses()) if (ia.getBroadcast() != null) targets.add(ia.getBroadcast());
+            }
+            for (String[] m : macs) {
+                byte[] mac = new byte[6];
+                String[] hx = m[0].split(":");
+                for (int i = 0; i < 6; i++) mac[i] = (byte) Integer.parseInt(hx[i], 16);
+                byte[] p = new byte[102];
+                for (int i = 0; i < 6; i++) p[i] = (byte) 0xff;
+                for (int i = 6; i < p.length; i++) p[i] = mac[(i - 6) % 6];
+                for (java.net.InetAddress t : targets) for (int port : new int[]{9, 7}) { sock.send(new java.net.DatagramPacket(p, p.length, t, port)); sent++; }
+            }
+        } catch (Exception e) {
+            return "Weck-Signal ging nicht raus: " + e.getMessage();
+        }
+        long t0 = System.currentTimeMillis();
+        boolean wired = false;
+        for (String[] m : macs) wired |= Boolean.parseBoolean(m[1]);
+        boolean anyWired = wired;
+        db.log("I", "pc", "Weck-Signal gesendet (" + sent + " Pakete)");
+        new Thread(() -> {
+            for (int i = 0; i < 36; i++) {
+                android.os.SystemClock.sleep(5000);
+                if (db.kvLong("pc_seen_at", 0) > t0) { Outbox.enqueue(ctx, "pcwoke:" + t0, "Dein PC ist an.", null, null); return; }
+            }
+            Outbox.enqueue(ctx, "pcwoke:" + t0, "Der PC hat sich nach 3 Minuten nicht gemeldet. Einschalten über das Netzwerk klappt nur, "
+                    + (anyWired ? "wenn er per Kabel am Router hängt und „Wake on LAN“ im BIOS an ist." : "wenn er per Kabel am Router hängt – gerade ist er nur per WLAN verbunden.")
+                    , null, null);
+        }, "pc-wake").start();
+        return "Weck-Signal ist raus. Ich sag dir Bescheid, sobald er hochgefahren ist.";
     }
 
     // ---------------------------------------------------------------- routine

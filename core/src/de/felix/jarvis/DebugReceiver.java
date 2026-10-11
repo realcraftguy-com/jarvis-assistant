@@ -94,6 +94,21 @@ public class DebugReceiver extends BroadcastReceiver {
                         out = "Code in Datei";
                         break;
                     }
+                    case "gmodels": { // Gemini models available to the key (names only)
+                        java.util.Map<String, String> h = new java.util.HashMap<>();
+                        h.put("x-goog-api-key", Secrets.get(c, Secrets.GEMINI));
+                        Http.Resp r = Http.request("GET", "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", h, null, 20000);
+                        StringBuilder b = new StringBuilder();
+                        org.json.JSONArray ms = new JSONObject(r.body).optJSONArray("models");
+                        for (int k = 0; ms != null && k < ms.length(); k++) {
+                            JSONObject m = ms.getJSONObject(k);
+                            if (m.optJSONArray("supportedGenerationMethods") != null && m.getJSONArray("supportedGenerationMethods").toString().contains("generateContent"))
+                                b.append(m.getString("name").replace("models/", "")).append(" ");
+                        }
+                        out = "HTTP " + r.code + ": " + b;
+                        break;
+                    }
+                    case "vision": out = Vision.describe(c, java.nio.file.Files.readAllBytes(new java.io.File(c.getFilesDir(), "test-blatt.jpg").toPath()), "image/jpeg", text); break;
                     case "maildry": out = new MailWatch(c).check(3); break;
                     case "stt": { // speech recognition of the last voice reply, under Telegram's file name
                         byte[] a = java.nio.file.Files.readAllBytes(new java.io.File(c.getCacheDir(), "jarvis-voice.ogg").toPath());

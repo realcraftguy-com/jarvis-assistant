@@ -24,6 +24,33 @@ final class Tools {
         }
     }
 
+    /** What matters today hour by hour: rain from when, cold/heat, storms. null if nothing worth a word. */
+    static String weatherNotable(String date) {
+        String lat = Cfg.peek("weather_lat"), lon = Cfg.peek("weather_lon");
+        if (lat == null || lat.trim().isEmpty() || lon == null || lon.trim().isEmpty()) return null;
+        try {
+            Http.Resp r = Http.request("GET", "https://api.open-meteo.com/v1/forecast?latitude=" + lat.trim() + "&longitude=" + lon.trim()
+                    + "&hourly=temperature_2m,precipitation_probability,weather_code&timezone=Europe%2FBerlin&start_date=" + date + "&end_date=" + date, null, null, 15000);
+            JSONObject h = new JSONObject(r.body).getJSONObject("hourly");
+            JSONArray t = h.getJSONArray("temperature_2m"), p = h.getJSONArray("precipitation_probability"), w = h.getJSONArray("weather_code");
+            int rainFrom = -1, rainProb = 0, storm = -1;
+            double min = 99, max = -99;
+            for (int i = 7; i <= 20 && i < t.length(); i++) {
+                min = Math.min(min, t.optDouble(i)); max = Math.max(max, t.optDouble(i));
+                if (rainFrom < 0 && p.optInt(i) >= 55) { rainFrom = i; rainProb = p.optInt(i); }
+                if (storm < 0 && w.optInt(i) >= 95) storm = i;
+            }
+            StringBuilder b = new StringBuilder();
+            if (storm >= 0) b.append("Gewitter möglich ab ").append(storm).append(" Uhr. ");
+            if (rainFrom >= 0) b.append("Regen ab etwa ").append(rainFrom).append(" Uhr (").append(rainProb).append(" %) – Schirm oder Regenjacke. ");
+            if (min <= 3) b.append("Kalt: nur ").append(Math.round(min)).append(" °C am Morgen – dicke Jacke. ");
+            if (max >= 29) b.append("Heiß: bis ").append(Math.round(max)).append(" °C – genug trinken. ");
+            return b.length() == 0 ? null : b.toString().trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private static String code(int c) {
         if (c == 0) return "klar";
         if (c <= 3) return "bewölkt";

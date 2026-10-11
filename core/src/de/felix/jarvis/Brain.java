@@ -71,6 +71,7 @@ public final class Brain implements Telegram.Handler {
             new Grades(ctx).tick();
         }
         new Routines(ctx).tick();
+        try { new Vocab(ctx).tick(); } catch (Exception e) { db.log("W", "vokabeln", e.toString()); }
         try { new MailWatch(ctx).tick(); } catch (Exception e) { db.log("W", "mail", e.toString()); }
         try { PcLink.get(ctx).tick(); } catch (Exception e) { db.log("W", "pc", e.toString()); }
         try { new CalendarWatch(ctx).tick(); } catch (Exception e) { db.log("W", "kalender", "Kalender-Wächter: " + e.getMessage()); }

@@ -30,6 +30,81 @@ final class Routines {
         ZonedDateTime now = Cfg.now();
         if (Cfg.school(ctx)) try { substitutions(now); } catch (Exception e) { db.log("W", "edupage", "Vertretungs-Abgleich: " + e.getMessage()); }
         wakeCall(now);
+        weatherTip(now);
+        if (Cfg.school(ctx)) try { packingLists(now); } catch (Exception e) { db.log("W", "packliste", e.toString()); }
+    }
+
+    // ------------------------------------------------------------------ weather tip
+
+    /** School days: the morning briefing carries it; otherwise (weekend, holidays, briefing off) a short tip at 08:30. */
+    private void weatherTip(ZonedDateTime now) {
+        String day = now.toLocalDate().toString();
+        if (day.equals(db.kv("weather_tip_day", ""))) return;
+        boolean schoolDay = now.getDayOfWeek().getValue() <= 5;
+        boolean briefing = "1".equals(Cfg.get(ctx, "briefing_enabled"));
+        LocalTime at = schoolDay && !briefing ? LocalTime.of(6, 40) : LocalTime.of(8, 30);
+        if (now.toLocalTime().isBefore(at) || now.getHour() >= 12) return;
+        if (schoolDay && briefing && !day.equals(db.kv("briefing_morning_day", "__"))) return; // wait: maybe the briefing covers it
+        db.kvSet("weather_tip_day", day);
+        if (schoolDay && briefing && db.kvLong("briefing_last", 0) > now.toLocalDate().atStartOfDay(Cfg.ZONE).toInstant().toEpochMilli()) return; // briefing went out
+        String tip = Tools.weatherNotable(day);
+        if (tip == null) return;
+        Outbox.enqueue(ctx, "weather:" + day, "Wetter heute: " + tip, null, null);
+        db.insert("chat", Db.cv("ts", System.currentTimeMillis(), "channel", "text", "role", "assistant", "content", "Wetter heute: " + tip));
+    }
+
+    // ------------------------------------------------------------------ packing lists
+
+    private static final String TRIP = "(?i).*(camp|fahrt|ausflug|schullandheim|landheim|exkursion|besuch|wandertag|skikurs|skilager|klassenfahrt|"
+            + "museum|theater|kino|zoo|tierpark|sporttag|bundesjugendspiele|projekttag|wallfahrt|übernachtung).*";
+
+    /** Two days before a trip (three for multi-day trips): a checklist; the evening before: "bag packed?". */
+    private void packingLists(ZonedDateTime now) throws Exception {
+        long ms = System.currentTimeMillis();
+        for (ContentValues e : db.query("SELECT entry_key, src_key, title, start_ms, end_ms, all_day FROM cal_map WHERE cancelled=0 AND entry_key NOT LIKE 'test:%' "
+                + "AND start_ms>? AND start_ms<?", String.valueOf(ms), String.valueOf(ms + 4 * 86_400_000L))) {
+            String title = e.getAsString("title");
+            if (title == null || !title.matches(TRIP) || title.matches("(?i).*(leistungsnachweis|schulaufgabe|test|prüfung).*")) continue;
+            boolean allDay = e.getAsInteger("all_day") != null && e.getAsInteger("all_day") == 1;
+            LocalDate day = allDay ? java.time.Instant.ofEpochMilli(e.getAsLong("start_ms")).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    : java.time.Instant.ofEpochMilli(e.getAsLong("start_ms")).atZone(Cfg.ZONE).toLocalDate();
+            long days = Math.max(1, Math.round((e.getAsLong("end_ms") - e.getAsLong("start_ms")) / 86_400_000.0));
+            long before = day.toEpochDay() - now.toLocalDate().toEpochDay();
+            String key = "pack:" + e.getAsString("entry_key") + ":" + day;
+            if (before <= (days > 1 ? 3 : 2) && before >= 1 && db.kv(key, null) == null && now.getHour() >= 15 && !Cfg.inQuietHours(ctx, now)) {
+                db.kvSet(key, String.valueOf(ms));
+                ContentValues src = db.one("SELECT text, note FROM school_items WHERE src_key=?", e.getAsString("src_key"));
+                String facts = "Termin: " + title + ", " + Homework.day(day.toString()) + (days > 1 ? ", " + days + " Tage" : "")
+                        + "\nInfos der Schule (Daten): " + (src == null ? "keine" : SchoolPipeline.shorten(src.getAsString("text"), 1500))
+                        + "\nWetter: " + Tools.weather(day.toString());
+                String list = compose(facts);
+                Outbox.enqueue(ctx, key, list, null, null);
+                db.insert("chat", Db.cv("ts", ms, "channel", "text", "role", "assistant", "content", list));
+                db.log("I", "packliste", "Packliste für " + title);
+            }
+            String eve = "packeve:" + e.getAsString("entry_key") + ":" + day;
+            if (before == 1 && now.getHour() >= 19 && now.getHour() < 21 && db.kv(eve, null) == null && db.kv(key, null) != null) {
+                db.kvSet(eve, String.valueOf(ms));
+                Outbox.enqueue(ctx, eve, "Morgen ist " + title + ". Tasche schon gepackt? Die Liste von vorgestern steht weiter oben.", null, null);
+            }
+        }
+    }
+
+    private String compose(String facts) {
+        String instruction = "Schreib " + Cfg.user() + " eine kurze Packliste für diesen Schultermin: höchstens 12 Punkte als „• …“, zuerst was die Schule ausdrücklich "
+                + "verlangt (mit „(laut Schule)“ markieren), dann das Sinnvolle fürs Wetter und die Dauer. Eine Zeile Einleitung, keine Erklärungen. "
+                + "Nichts erfinden, was die Schule angeblich verlangt.\n\n" + facts;
+        ClaudeBridge cb = new ClaudeBridge(ctx);
+        if (cb.enabled()) {
+            try { return Agent.clean(cb.ask("pack", Agent.personaStatic("telegram"), Brain.get(ctx).agent.timeOnly(), null, instruction)); } catch (Exception ignored) {}
+        }
+        try {
+            org.json.JSONArray msgs = new org.json.JSONArray().put(new org.json.JSONObject().put("role", "system").put("content", Agent.persona("telegram")))
+                    .put(new org.json.JSONObject().put("role", "user").put("content", instruction));
+            return Agent.clean(Llm.text(Brain.get(ctx).llm.chat(msgs, null, false, null, 500)));
+        } catch (Exception e) {
+            return "Bald ist ein Schultermin – denk ans Packen:\n" + facts;
+        }
     }
 
     // ------------------------------------------------------------------ substitutions
