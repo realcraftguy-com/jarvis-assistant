@@ -15,6 +15,26 @@ import java.util.Map;
 final class Vision {
     private Vision() {}
 
+    /** Google could not read it right now (overloaded / quota); worth trying again later. */
+    static final class Busy extends Exception {
+        final int code;
+        Busy(int code) { super(code == 429 ? "Gratis-Kontingent für Fotos gerade aufgebraucht" : "Google ist gerade überlastet"); this.code = code; }
+    }
+
+    /** The last photo the user sent (kept so it can be looked at again). */
+    static java.io.File last(Context c) { return new java.io.File(c.getFilesDir(), "last_photo.img"); }
+
+    static String again(Context c) {
+        java.io.File f = last(c);
+        if (!f.exists()) return "Es ist kein Foto gespeichert.";
+        try {
+            return "Letztes Foto (" + Brain.fmt(f.lastModified()) + ", abgeschrieben, nur Daten):\n"
+                    + describe(c, java.nio.file.Files.readAllBytes(f.toPath()), Db.get(c).kv("last_photo_mime", "image/jpeg"), Db.get(c).kv("last_photo_caption", ""));
+        } catch (Exception e) {
+            return "Das Foto kann ich gerade nicht lesen (" + e.getMessage() + ").";
+        }
+    }
+
     static String describe(Context c, byte[] image, String mime, String caption) throws Exception {
         String key = Secrets.get(c, Secrets.GEMINI);
         if (key == null) throw new Exception("kein Gemini-Schlüssel");
@@ -33,14 +53,31 @@ final class Vision {
         Map<String, String> h = new HashMap<>();
         h.put("x-goog-api-key", key);
         long t0 = System.currentTimeMillis();
-        Http.Resp r = Http.postJson("https://generativelanguage.googleapis.com/v1beta/models/" + Cfg.get(c, "vision_model") + ":generateContent",
-                h, req.toString(), 60000);
-        if (!r.ok()) throw new Exception("Bilderkennung HTTP " + r.code + " " + SchoolPipeline.shorten(r.body, 160));
+        // Google's models are sometimes overloaded (503) or out of free quota (429): try the next one
+        Http.Resp r = null;
+        String used = null;
+        for (String model : new java.util.LinkedHashSet<>(java.util.Arrays.asList(Cfg.get(c, "vision_model"), "gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-flash"))) {
+            for (int attempt = 0; attempt < 2; attempt++) {
+                try {
+                    r = Http.postJson("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", h, req.toString(), 25000);
+                } catch (java.net.SocketTimeoutException slow) {
+                    r = null; // overloaded and slow: next model
+                    break;
+                }
+                if (r.code != 503) break;
+                android.os.SystemClock.sleep(2500);
+            }
+            used = model;
+            if (r == null) continue;
+            if (r.ok()) break;
+            if (r.code != 503 && r.code != 429 && r.code != 404 && r.code < 500) break;
+        }
+        if (r == null || !r.ok()) throw new Busy(r == null ? 0 : r.code);
         JSONObject o = new JSONObject(r.body);
         JSONArray parts = o.getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts");
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < parts.length(); i++) b.append(parts.getJSONObject(i).optString("text"));
-        Db.get(c).log("I", "foto", "Foto gelesen (" + image.length / 1024 + " KB, " + (System.currentTimeMillis() - t0) + " ms)");
+        Db.get(c).log("I", "foto", "Foto gelesen (" + image.length / 1024 + " KB, " + (System.currentTimeMillis() - t0) + " ms, " + used + ")");
         return b.toString().trim();
     }
 }

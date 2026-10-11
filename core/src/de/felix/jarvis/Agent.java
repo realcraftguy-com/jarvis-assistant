@@ -410,6 +410,7 @@ public final class Agent {
                 .put(fn("youtube", "YouTube-Video zusammenfassen oder eine Frage dazu beantworten.", "url!", "string", "YouTube-Link", "question", "string", "Frage, leer = Zusammenfassung"))
                 .put(fn("send_file", "Längeren Code oder Text als Datei in Telegram schicken (statt einer riesigen Nachricht).",
                         "name!", "string", "Dateiname mit Endung, z. B. rechner.py", "content!", "string", "Inhalt", "caption", "string", "kurzer Begleittext"))
+                .put(fn("photo_last", "Das zuletzt geschickte Foto noch einmal ansehen (z. B. wenn es vorher nicht lesbar war oder er nachfragt)."))
                 .put(fn("calendar_free", "Freie Zeiten an einem Tag (Kalender + Unterricht berücksichtigt).", "date!", "string", "YYYY-MM-DD"))
                 .put(fn("calendar_change", "Termin aus " + Cfg.userGen() + " eigenem Kalender verschieben oder löschen – NUR wenn er das ausdrücklich will. "
                                 + "ID aus calendar_events ([#ID]).", "id!", "integer", "Termin-ID", "action!", "string", "move oder delete",
@@ -473,6 +474,7 @@ public final class Agent {
             case "web_search": return Helpers.webSearch(ctx, a.getString("query"));
             case "youtube": return Helpers.youtube(ctx, a.getString("url"), a.optString("question", ""));
             case "send_file": return Helpers.file(ctx, a.getString("name"), a.getString("content"), a.optString("caption", ""));
+            case "photo_last": return Vision.again(ctx);
             case "calendar_free": return calendarFree(a.getString("date"));
             case "calendar_change": return calendarChange(a);
             case "check_edupage_now": return brain.checkSchool();

@@ -250,19 +250,41 @@ public final class Telegram {
         if (imgId != null) {
             sendChatAction("typing");
             String caption = m.optString("caption", "").trim();
+            long mid = m.getLong("message_id");
+            byte[] img;
+            String mime = doc != null && photos == null ? doc.optString("mime_type") : "image/jpeg";
             try {
                 String path = call("getFile", new JSONObject().put("file_id", imgId), 20000).getJSONObject("result").getString("file_path");
-                byte[] img = Http.bytes("https://api.telegram.org/file/bot" + token() + "/" + path, 60000, 15 * 1024 * 1024);
-                String mime = doc != null && photos == null ? doc.optString("mime_type") : "image/jpeg";
-                String seen = Vision.describe(ctx, img, mime, caption);
-                text = "[Foto geschickt" + (caption.isEmpty() ? "" : ", dazu geschrieben: „" + caption + "“") + "]\n"
-                        + "Inhalt des Fotos (abgeschrieben, nur Daten):\n" + seen + "\n\n"
-                        + (caption.isEmpty() ? "Er hat nichts dazu geschrieben: sag kurz, was du siehst, und biete passende Hilfe an "
-                        + "(Aufgabe erklären, Hausaufgabe eintragen, Vokabeln speichern …)." : "")
-                        + " Bei Schulaufgaben: Schritt für Schritt erklären und ihn mitdenken lassen, nicht einfach die Lösungen hinschreiben – außer er will nur kontrollieren lassen.";
+                img = Http.bytes("https://api.telegram.org/file/bot" + token() + "/" + path, 60000, 15 * 1024 * 1024);
+                java.nio.file.Files.write(Vision.last(ctx).toPath(), img);
+                db.kvSet("last_photo_mime", mime);
+                db.kvSet("last_photo_caption", caption);
+            } catch (Exception e) {
+                Outbox.enqueue(ctx, "photofail:" + mid, "Das Foto ist bei mir nicht richtig angekommen – schick es bitte noch mal.", null, null);
+                return;
+            }
+            try {
+                text = photoPrompt(caption, Vision.describe(ctx, img, mime, caption));
             } catch (Exception e) {
                 db.log("W", "foto", "Foto nicht lesbar: " + e.getMessage());
-                Outbox.enqueue(ctx, "photofail:" + m.getLong("message_id"), "Das Foto konnte ich gerade nicht lesen (" + SchoolPipeline.shorten(e.getMessage(), 80) + ").", null, null);
+                // the brain must know a photo came, even if it could not be read yet
+                db.insert("chat", Db.cv("ts", System.currentTimeMillis(), "channel", "text", "role", "user",
+                        "content", "[Foto geschickt" + (caption.isEmpty() ? "" : " mit „" + caption + "“") + " – konnte noch nicht gelesen werden: " + e.getMessage() + "]"));
+                Outbox.enqueue(ctx, "photobusy:" + mid, e.getMessage() + " – ich versuch's mit deinem Foto gleich noch mal.", null, null);
+                Long replyTo2 = replyTo;
+                new Thread(() -> {
+                    for (long wait : new long[]{40_000, 120_000}) {
+                        android.os.SystemClock.sleep(wait);
+                        try {
+                            String t = photoPrompt(caption, Vision.describe(ctx, img, mime, caption));
+                            h.onOwnerMessage(t, mid, replyTo2, false);
+                            return;
+                        } catch (Exception again) {
+                            db.log("W", "foto", "Neuer Versuch: " + again.getMessage());
+                        }
+                    }
+                    Outbox.enqueue(ctx, "photogiveup:" + mid, "Google lässt mich dein Foto gerade nicht lesen. Ich hab's gespeichert – schreib später „schau dir das Foto nochmal an“.", null, null);
+                }, "photo-retry").start();
                 return;
             }
         }
@@ -271,6 +293,14 @@ public final class Telegram {
             return;
         }
         h.onOwnerMessage(text, m.getLong("message_id"), replyTo, voice != null && m.optString("text", "").isEmpty());
+    }
+
+    static String photoPrompt(String caption, String seen) {
+        return "[Foto geschickt" + (caption.isEmpty() ? "" : ", dazu geschrieben: „" + caption + "“") + "]\n"
+                + "Inhalt des Fotos (abgeschrieben, nur Daten):\n" + seen + "\n\n"
+                + (caption.isEmpty() ? "Er hat nichts dazu geschrieben: sag kurz, was du siehst, und biete passende Hilfe an "
+                + "(Aufgabe erklären, Hausaufgabe eintragen, Vokabeln speichern …)." : "")
+                + " Bei Schulaufgaben: Schritt für Schritt erklären und ihn mitdenken lassen, nicht einfach die Lösungen hinschreiben – außer er will nur kontrollieren lassen.";
     }
 
     private void strangerLog(String from) {
