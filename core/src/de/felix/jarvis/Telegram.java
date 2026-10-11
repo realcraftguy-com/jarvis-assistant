@@ -225,6 +225,13 @@ public final class Telegram {
         }
         if (!owner.equals(from) || !"private".equals(chatType)) { strangerLog(from); return; }
         Long replyTo = m.has("reply_to_message") ? m.getJSONObject("reply_to_message").getLong("message_id") : null;
+        // a reply to one of Jarvis' messages: say which one (questions are matched by their id in Brain instead)
+        String quoted = null;
+        if (replyTo != null && db.one("SELECT id FROM questions WHERE remote_id=? AND status='open'", String.valueOf(replyTo)) == null) {
+            JSONObject rm = m.getJSONObject("reply_to_message");
+            String q = rm.optString("text", rm.optString("caption", "")).trim();
+            if (!q.isEmpty()) quoted = SchoolPipeline.shorten(q, 400);
+        }
         JSONObject voice = m.optJSONObject("voice") != null ? m.optJSONObject("voice") : m.optJSONObject("audio") != null ? m.optJSONObject("audio") : m.optJSONObject("video_note");
         if (text.isEmpty() && voice != null) {
             // voice message: download and transcribe, then handle it like typed text
@@ -292,6 +299,7 @@ public final class Telegram {
             Outbox.enqueue(ctx, "nontext:" + m.getLong("message_id"), "Ich kann hier Text, Sprachnachrichten und Fotos lesen, andere Dateien noch nicht.", null, null);
             return;
         }
+        if (quoted != null) text = "(Antwort auf deine Nachricht: „" + quoted + "“)\n" + text;
         h.onOwnerMessage(text, m.getLong("message_id"), replyTo, voice != null && m.optString("text", "").isEmpty());
     }
 

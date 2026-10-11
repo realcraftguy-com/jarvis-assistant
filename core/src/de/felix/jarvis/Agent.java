@@ -48,7 +48,22 @@ public final class Agent {
     String dynamicContext(boolean call) {
         ZonedDateTime n = Cfg.now();
         return "Jetzt: " + n.format(DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy, HH:mm", Locale.GERMAN)) + " Uhr („"
-                + spokenTime(n.getHour(), n.getMinute()) + "“)." + context() + recap(call);
+                + spokenTime(n.getHour(), n.getMinute()) + "“)." + context() + recap(call) + (call ? "" : ownMessages());
+    }
+
+    /**
+     * What Jarvis sent on its own (alerts, briefings, reminders) since Claude last answered: the long-running Claude
+     * session never sees these otherwise, so "how much RAM does it use?" after a PC alert would make no sense to it.
+     */
+    private String ownMessages() {
+        long since = Math.max(db.kvLong("claude_seen_ts", 0), System.currentTimeMillis() - 24 * 3600_000L);
+        List<ContentValues> l = db.query("SELECT ts, content FROM (SELECT * FROM chat WHERE channel='text' AND role='assistant' AND ts>? ORDER BY id DESC LIMIT 5) ORDER BY id",
+                String.valueOf(since));
+        if (l.isEmpty()) return "";
+        StringBuilder b = new StringBuilder("\nDas hast du " + Cfg.user() + " zuletzt von dir aus geschickt (seine Nachricht kann sich darauf beziehen):\n");
+        for (ContentValues v : l) b.append("- ").append(Brain.fmt(v.getAsLong("ts")).replaceAll(".* ", "")).append(" Uhr: ")
+                .append(SchoolPipeline.shorten(v.getAsString("content"), 300).replace("\n", " ")).append("\n");
+        return b.toString();
     }
 
     static String persona(String channel) {
@@ -118,6 +133,7 @@ public final class Agent {
             try {
                 String reply = clean(cb.ask("chat", personaStatic(channel) + claudeRules(), dynamicContext(false), historyText(), userText));
                 saveTurn(channel, "assistant", reply);
+                db.kvSet("claude_seen_ts", System.currentTimeMillis());
                 db.kvSet("brain_last", "Claude");
                 return reply;
             } catch (ClaudeBridge.Limited l) {

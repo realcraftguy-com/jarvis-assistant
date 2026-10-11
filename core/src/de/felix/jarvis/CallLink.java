@@ -232,7 +232,8 @@ public final class CallLink {
     String liveSystem(String reason) {
         Agent a = Brain.get(ctx).agent;
         StringBuilder b = new StringBuilder(Agent.persona("call"));
-        b.append("\n\nDu sprichst direkt mit " + Cfg.user() + " am Telefon (Deutsch, natürliche Sprechweise, kurze Sätze, du darfst ihn unterbrechen lassen). ")
+        b.append("\n\nDu sprichst direkt mit " + Cfg.user() + " am Telefon (Deutsch, natürliche Sprechweise, kurze Sätze, du darfst ihn unterbrechen lassen). "
+                + "Er spricht Deutsch. Klingt etwas unverständlich oder nach einer fremden Sprache, war die Leitung schlecht: kurz nachfragen, nicht raten und nicht die Sprache wechseln. ")
                 .append("Für Aktionen und aktuelle Daten nutzt du die Werkzeuge; was unten steht, weißt du schon.\n");
         try {
             java.time.LocalDate d = java.time.LocalDate.now(Cfg.ZONE);

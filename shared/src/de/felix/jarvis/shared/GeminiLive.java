@@ -61,7 +61,7 @@ public final class GeminiLive implements WsClient.Listener {
             ws = WsClient.connect(ENDPOINT + "?key=" + java.net.URLEncoder.encode(key, "UTF-8"), this);
         }
         JSONObject gen = new JSONObject().put("responseModalities", new JSONArray().put("AUDIO"))
-                .put("speechConfig", new JSONObject().put("voiceConfig", new JSONObject().put("prebuiltVoiceConfig",
+                .put("speechConfig", new JSONObject().put("languageCode", "de-DE").put("voiceConfig", new JSONObject().put("prebuiltVoiceConfig",
                         new JSONObject().put("voiceName", voice))));
         JSONObject setup = new JSONObject().put("model", "models/" + model).put("generationConfig", gen)
                 .put("systemInstruction", new JSONObject().put("parts", new JSONArray().put(new JSONObject().put("text", system))))
