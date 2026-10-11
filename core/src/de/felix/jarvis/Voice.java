@@ -31,8 +31,7 @@ final class Voice {
         boolean[] complete = {false};
         GeminiLive live = new GeminiLive(key, Cfg.get(c, "live_model"), Cfg.get(c, "live_voice"),
                 "Du bist die Stimme von " + Cfg.assistant() + " (ruhig, souverän, trocken-humorvoll, natürlich, auf Deutsch). "
-                        + "Du bekommst einen fertigen Text. Sprich ihn wörtlich, in ruhigem, eher langsamem Tempo mit kleinen Pausen zwischen den Sätzen, "
-                        + "wie eine entspannte Sprachnachricht an einen Freund – "
+                        + "Du bekommst einen fertigen Text. Sprich ihn wörtlich und natürlich, wie eine Sprachnachricht an einen Freund – "
                         + "nichts hinzufügen, nichts weglassen, nichts kommentieren.",
                 new JSONArray(), new GeminiLive.Events() {
             @Override public void onReady() {}
