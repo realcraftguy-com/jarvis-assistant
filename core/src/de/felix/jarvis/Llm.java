@@ -45,6 +45,9 @@ public final class Llm {
 
     /** Speech to text (Groq Whisper, free tier), German. */
     public String transcribe(byte[] audio, String filename) throws Exception {
+        // Telegram calls voice messages ".oga"; Whisper only accepts the usual extensions (ogg, opus, mp3, m4a, wav …)
+        filename = filename.replaceAll("(?i)\\.oga$", ".ogg");
+        if (!filename.contains(".")) filename += ".ogg";
         String boundary = "----jarvis" + System.nanoTime();
         java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
         java.io.PrintStream ps = new java.io.PrintStream(bo, true, "UTF-8");
@@ -59,7 +62,7 @@ public final class Llm {
         h.put("Content-Type", "multipart/form-data; boundary=" + boundary);
         h.put("Authorization", "Bearer " + Secrets.get(ctx, Secrets.GROQ));
         Http.Resp r = Http.request("POST", "https://api.groq.com/openai/v1/audio/transcriptions", h, bo.toByteArray(), 60000);
-        if (!r.ok()) throw new Exception("Whisper HTTP " + r.code);
+        if (!r.ok()) throw new Exception("Whisper HTTP " + r.code + " " + SchoolPipeline.shorten(r.body, 160));
         return new JSONObject(r.body).optString("text", "").trim();
     }
 
