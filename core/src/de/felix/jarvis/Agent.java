@@ -159,8 +159,8 @@ public final class Agent {
     }
 
     static String claudeRules() { return "\n\nDeine Werkzeuge sind genau die des Jarvis-Servers (Kalender, Stundenplan, Schule, Erinnerungen, Aufgaben, "
-            + "Wetter, Wikipedia, Websuche, YouTube, Bilder, PC, Mails). Nutze sie, statt zu raten: aktuelle Dinge → web_search, YouTube-Link → youtube, "
-            + "„mach/mal mir ein Bild“ → image_generate (Prompt auf Englisch, ausführlich), Code → du schreibst ihn selbst, sauber und kurz erklärt; "
+            + "Wetter, Wikipedia, Websuche, YouTube, PC, Mails). Nutze sie, statt zu raten: aktuelle Dinge → web_search, YouTube-Link → youtube, "
+            + "Bilder malen kannst du gerade nicht (sag das kurz), Code → du schreibst ihn selbst, sauber und kurz erklärt; "
             + "ab etwa 40 Zeilen per send_file statt in der Nachricht. Antworte direkt mit der Nachricht an " + Cfg.user() + " – ohne Vorrede und ohne deine Werkzeugnutzung zu erklären."; }
 
     /** Recent chat as one prompt for Claude (each call is stateless), newest message last. */
@@ -408,9 +408,6 @@ public final class Agent {
                 .put(fn("web_search", "Aktuelle Infos aus dem Web (Google-Suche über Gemini) – für News, Ergebnisse, Öffnungszeiten, Fakten nach deinem Wissensstand.",
                         "query!", "string", "Suchfrage auf Deutsch"))
                 .put(fn("youtube", "YouTube-Video zusammenfassen oder eine Frage dazu beantworten.", "url!", "string", "YouTube-Link", "question", "string", "Frage, leer = Zusammenfassung"))
-                .put(fn("image_generate", "Bild erzeugen und in Telegram schicken (kostenloser Bildgenerator). Keine echten Personen, nichts Persönliches im Prompt.",
-                        "prompt!", "string", "ausführliche Bildbeschreibung auf ENGLISCH (Motiv, Stil, Licht, Farben)", "caption", "string", "kurzer deutscher Begleittext",
-                        "format", "string", "quadrat (Standard), hoch oder quer"))
                 .put(fn("send_file", "Längeren Code oder Text als Datei in Telegram schicken (statt einer riesigen Nachricht).",
                         "name!", "string", "Dateiname mit Endung, z. B. rechner.py", "content!", "string", "Inhalt", "caption", "string", "kurzer Begleittext"))
                 .put(fn("calendar_free", "Freie Zeiten an einem Tag (Kalender + Unterricht berücksichtigt).", "date!", "string", "YYYY-MM-DD"))
@@ -475,7 +472,6 @@ public final class Agent {
             case "vocab_lists": return new Vocab(ctx).lists();
             case "web_search": return Helpers.webSearch(ctx, a.getString("query"));
             case "youtube": return Helpers.youtube(ctx, a.getString("url"), a.optString("question", ""));
-            case "image_generate": return Helpers.image(ctx, a.getString("prompt"), a.optString("caption", ""), a.optString("format", ""));
             case "send_file": return Helpers.file(ctx, a.getString("name"), a.getString("content"), a.optString("caption", ""));
             case "calendar_free": return calendarFree(a.getString("date"));
             case "calendar_change": return calendarChange(a);
