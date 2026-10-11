@@ -248,6 +248,7 @@ public final class CallLink {
         if (Cfg.school(ctx)) b.append("\n\nOffene Hausaufgaben (nächste 3 Tage):\n").append(new Homework(ctx).openSummary(3));
         b.append(a.contextForLive());
         if (reason != null) b.append("\n\nDU rufst " + Cfg.user() + " gerade an. Grund: ").append(reason).append(". Er hat abgenommen – eröffne kurz und nenne den Grund.");
+        if (reason != null && reason.startsWith(Homework.QUIZ)) b.append(Homework.quizInstruction(reason));
         return b.toString();
     }
 
@@ -293,7 +294,7 @@ public final class CallLink {
         if (!Brain.get(ctx).llm.usable() && !new ClaudeBridge(ctx).enabled()) { say(call, reason, true); return; }
         try {
             String opener = Brain.get(ctx).agent.respond("call", null, null,
-                    "Du rufst " + Cfg.user() + " gerade an, er hat abgenommen. Grund des Anrufs: " + reason + ". Eröffne kurz und nenne den Grund.");
+                    "Du rufst " + Cfg.user() + " gerade an, er hat abgenommen. Grund des Anrufs: " + reason + ". Eröffne kurz und nenne den Grund." + (reason.startsWith(Homework.QUIZ) ? Homework.quizInstruction(reason) : ""));
             say(call, opener, true);
         } catch (Exception e) {
             say(call, "Boss, kurz zur Info: " + reason, true);
@@ -376,6 +377,11 @@ public final class CallLink {
         db.log("I", "anruf-app", "Anruf nicht angenommen (" + why + ") – schreibe stattdessen");
         try { if (call != null) send(Link.msg("cancel").put("call", call)); } catch (Exception ignored) {}
         if (reason.startsWith("Weckanruf")) return; // the morning briefing follows in writing anyway, the retry is handled by Routines
+        if (reason.startsWith(Homework.QUIZ)) {
+            Outbox.enqueue(ctx, "missed:" + call, "Ich wollte dich abfragen (" + reason.substring(Homework.QUIZ.length() + 2)
+                    + "), hab dich aber nicht erreicht. Schreib „frag mich ab“, dann machen wir's hier – oder „ruf mich zur Abfrage an“.", null, null);
+            return;
+        }
         Outbox.enqueue(ctx, "missed:" + call, "Ich habe dich nicht erreicht (" + why + "). Worum es geht: " + reason, null, null);
     }
 

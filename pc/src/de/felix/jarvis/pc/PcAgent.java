@@ -196,12 +196,44 @@ public final class PcAgent {
                 hot.remove(name);
                 return sh(5, "pgrep", "-u", user, "-x", name).isBlank() ? name + " beendet." : name + " läuft noch (" + r.trim() + ").";
             }
+            case "music": return music(value.trim().toLowerCase());
             case "mute":
                 sh(10, "wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle");
                 return "Ton umgeschaltet (stumm/an).";
             default:
-                return "Unbekannte Aktion – erlaubt: shutdown, reboot, suspend, cancel, lock, notify, volume, mute, kill.";
+                return "Unbekannte Aktion – erlaubt: shutdown, reboot, suspend, cancel, lock, notify, volume, mute, kill, music.";
         }
+    }
+
+    /** Music through MPRIS (Spotify first, otherwise whatever player is running). */
+    static String music(String what) throws Exception {
+        String players = sh(5, "playerctl", "-l").trim();
+        String p = players.contains("spotify") ? "spotify" : players.isEmpty() ? null : players.split("\n")[0].trim();
+        if ("start".equals(what) || (p == null && what.matches("play|toggle"))) {
+            if (p == null) {
+                new ProcessBuilder("setsid", "-f", "spotify").redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                for (int i = 0; i < 20 && !sh(5, "playerctl", "-l").contains("spotify"); i++) Thread.sleep(500);
+                if (!sh(5, "playerctl", "-l").contains("spotify")) return "Spotify wird gestartet.";
+                p = "spotify";
+                if ("start".equals(what)) return "Spotify ist offen.";
+            } else if ("start".equals(what)) return "Spotify läuft schon.";
+        }
+        if (p == null) return "Gerade läuft kein Musikprogramm (Spotify ist zu).";
+        switch (what) {
+            case "play": sh(5, "playerctl", "-p", p, "play"); break;
+            case "pause": case "stop": sh(5, "playerctl", "-p", p, "pause"); break;
+            case "toggle": sh(5, "playerctl", "-p", p, "play-pause"); break;
+            case "next": sh(5, "playerctl", "-p", p, "next"); break;
+            case "previous": case "prev": sh(5, "playerctl", "-p", p, "previous"); break;
+            case "status": case "": break;
+            default: return "Musik: play, pause, toggle, next, previous, status oder start.";
+        }
+        if (!what.matches("status|")) Thread.sleep(700);
+        String now = sh(5, "playerctl", "-p", p, "metadata", "--format", "{{status}}|{{artist}}|{{title}}").trim();
+        String[] f = now.split("\\|", -1);
+        if (f.length < 3) return "Erledigt.";
+        String state = f[0].equals("Playing") ? "Läuft" : f[0].equals("Paused") ? "Pausiert" : f[0];
+        return state + ": " + f[1] + " – " + f[2];
     }
 
     /** Never ended through Jarvis: desktop, session, system and Jarvis itself. */

@@ -94,6 +94,7 @@ public class DebugReceiver extends BroadcastReceiver {
                         out = "Code in Datei";
                         break;
                     }
+                    case "maildry": out = new MailWatch(c).check(3); break;
                     case "stt": { // speech recognition of the last voice reply, under Telegram's file name
                         byte[] a = java.nio.file.Files.readAllBytes(new java.io.File(c.getCacheDir(), "jarvis-voice.ogg").toPath());
                         out = new Llm(c).transcribe(a, "file_42.oga");

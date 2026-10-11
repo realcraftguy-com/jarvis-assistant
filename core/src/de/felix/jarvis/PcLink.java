@@ -182,7 +182,7 @@ public final class PcLink {
     /** One of the fixed actions. */
     public String action(String action, String value) {
         if (!paired()) return "Kein PC gekoppelt.";
-        if (!action.matches("shutdown|reboot|suspend|cancel|lock|notify|volume|mute|kill")) return "Diese Aktion kann ich am PC nicht ausführen.";
+        if (!action.matches("shutdown|reboot|suspend|cancel|lock|notify|volume|mute|kill|music")) return "Diese Aktion kann ich am PC nicht ausführen.";
         if (!online() && !"cancel".equals(action)) return "Der PC scheint aus zu sein (letztes Lebenszeichen " + Brain.fmt(db.kvLong("pc_seen_at", 0)) + ").";
         try {
             JSONObject r = request(Link.msg("pc_action").put("action", action).put("value", value == null ? "" : value), 15);

@@ -120,9 +120,12 @@ final class MailWatch {
     // ------------------------------------------------------------------ checking
 
     /** Every 5 minutes: new mail since the last check. Returns a short result for logs/tests. */
-    String check() throws Exception {
+    String check() throws Exception { return check(0); }
+
+    /** dry > 0: read and sort the last n mails without storing or reporting anything (test). */
+    String check(int dry) throws Exception {
         if (!configured()) return "Kein Postfach eingerichtet.";
-        long lastUid = db.kvLong("mail_last_uid", 0);
+        long lastUid = dry > 0 ? 1 : db.kvLong("mail_last_uid", 0);
         List<long[]> found = new ArrayList<>();
         List<JSONObject> fresh = new ArrayList<>();
         try (Imap m = new Imap(host())) {
@@ -140,9 +143,11 @@ final class MailWatch {
                 for (long u : uids) max = Math.max(max, u);
                 db.kvSet("mail_last_uid", Math.max(max, 1));
                 db.log("I", "mail", "Postfach verbunden (" + uids.size() + " Mails seit gestern, ab jetzt melde ich Neues)");
+                db.kvSet("mail_ok_at", System.currentTimeMillis());
                 return "verbunden";
             }
             int n = 0;
+            if (dry > 0) uids = uids.subList(Math.max(0, uids.size() - dry), uids.size());
             for (long u : uids) {
                 if (u <= lastUid || n++ >= 15) continue;
                 List<String> r = m.cmd("UID FETCH " + u + " (BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE CONTENT-TYPE CONTENT-TRANSFER-ENCODING LIST-UNSUBSCRIBE)] BODY.PEEK[TEXT]<0.30000>)");
@@ -155,10 +160,15 @@ final class MailWatch {
                         .put("text", SchoolPipeline.shorten(text(header(head, "Content-Type"), header(head, "Content-Transfer-Encoding"), body), 1500));
                 fresh.add(mail);
                 found.add(new long[]{u});
-                db.kvSet("mail_last_uid", Math.max(db.kvLong("mail_last_uid", 0), u));
+                if (dry == 0) db.kvSet("mail_last_uid", Math.max(db.kvLong("mail_last_uid", 0), u));
             }
         }
-        for (JSONObject mail : fresh) triage(mail);
+        if (dry > 0) {
+            StringBuilder b = new StringBuilder();
+            for (JSONObject mail : fresh) b.append(triage(mail, false)).append(" | ");
+            return b.toString();
+        }
+        for (JSONObject mail : fresh) triage(mail, true);
         db.kvSet("mail_ok_at", System.currentTimeMillis());
         return fresh.size() + " neue Mail(s)";
     }
@@ -182,7 +192,7 @@ final class MailWatch {
     }
 
     /** important -> message now; normal -> briefing; ads -> ignored. Mail text goes to a model without tools. */
-    private void triage(JSONObject mail) {
+    private String triage(JSONObject mail, boolean report) {
         String kind = "normal", summary = "";
         boolean ad = mail.optBoolean("list") || mail.optString("from").toLowerCase(Locale.ROOT).matches(".*(newsletter|no-?reply|marketing|news@|info@|angebot).*");
         Llm llm = Brain.get(ctx).llm;
@@ -205,10 +215,12 @@ final class MailWatch {
         } else {
             kind = ad ? "werbung" : "wichtig";
         }
+        if (!report) return kind + ": " + shortFrom(mail.optString("from")) + " / " + SchoolPipeline.shorten(mail.optString("subject"), 40)
+                + " / Text " + mail.optString("text").length() + " Zeichen / " + summary;
         db.getWritableDatabase().insertWithOnConflict("mails", null, Db.cv("uid", mail.optLong("uid"), "sender", mail.optString("from"),
                 "subject", mail.optString("subject"), "date", mail.optString("date"), "snippet", SchoolPipeline.shorten(mail.optString("text"), 600),
                 "kind", kind, "summary", summary, "created", System.currentTimeMillis()), android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE);
-        if (!"wichtig".equals(kind)) return;
+        if (!"wichtig".equals(kind)) return kind;
         String text = "📧 Neue Mail von " + shortFrom(mail.optString("from")) + ": „" + mail.optString("subject") + "“"
                 + (summary.isEmpty() ? "" : "\n" + summary);
         boolean quiet = Cfg.inQuietHours(ctx, Cfg.now());
@@ -217,6 +229,7 @@ final class MailWatch {
             db.insert("chat", Db.cv("ts", System.currentTimeMillis(), "channel", "text", "role", "assistant", "content", text));
         }
         db.log("I", "mail", "Wichtige Mail: " + mail.optString("subject") + (quiet ? " (Ruhezeit – kommt ins Briefing)" : ""));
+        return kind;
     }
 
     /** Recent mail for the tool / briefing. */

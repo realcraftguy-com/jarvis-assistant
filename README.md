@@ -6,6 +6,7 @@ Jarvis läuft dauerhaft auf einem alten Android-Handy (ohne PC, ohne SIM) und k�
 - **Telegram:** Jarvis schreibt dir (Briefings, Änderungen, Rückfragen) und versteht Text und Sprachnachrichten.
 - **Anrufe:** Eine eigene Anruf-App auf deinem Haupthandy. Jarvis klingelt wie ein normaler Kontakt in der Telefon-App und spricht mit einer natürlichen Stimme (Gemini Live).
 - **Ruft selbst an, wenn es dringend ist:** Prüfung morgen neu eingetragen, Termin abgesagt („Soll ich dir die freie Stunde blocken?“) usw.
+- **Abfrage vor Prüfungen:** Am Abend vor einer Prüfung ruft Jarvis an und fragt dich den Stoff ab (oder wann du willst: „Ruf mich an und frag mich Mathe ab“).
 - **Hausaufgaben-Tracker** (aus EduPage plus selbst diktiert) mit Abfrage am Vorabend, **Lernplan vor Prüfungen**, **Vertretungsplan live**, **Noten mit Schnitt**, **Weckanruf mit Briefing**.
 - **PC im Blick:** Ein kleiner PC-Agent meldet Auslastung, Temperatur, Speicher, Updates und hängende Programme. Auf Zuruf fährt Jarvis den PC herunter, startet ihn neu, sperrt ihn, regelt die Lautstärke oder beendet ein hängendes Programm. Spätabends fragt er: „Dein PC läuft noch – soll ich ihn ausschalten?“
 - **E-Mails:** Jarvis liest dein Postfach (nur lesen), meldet wichtige Mails sofort mit Kurzfassung und packt den Rest ins Briefing. Werbung fliegt raus.
@@ -106,7 +107,7 @@ java -jar jarvis-pc.jar install            # richtet einen systemd-Benutzerdiens
 java -jar jarvis-pc.jar status             # zeigt, was Jarvis sieht
 ```
 
-Jarvis kann am PC **nur** diese Aktionen auslösen: `shutdown`, `reboot`, `suspend` (jeweils mit 60 Sekunden Warnung auf dem Bildschirm, abbrechbar), `cancel`, `lock`, `notify`, `volume`, `mute` und `kill` (ein Programm beenden; System- und Desktop-Prozesse sind geschützt). Beliebige Befehle sind nicht möglich. Nützliche Helfer: `checkupdates` (Arch, für die Update-Anzeige), `notify-send`, `wpctl`.
+Jarvis kann am PC **nur** diese Aktionen auslösen: `shutdown`, `reboot`, `suspend` (jeweils mit 60 Sekunden Warnung auf dem Bildschirm, abbrechbar), `cancel`, `lock`, `notify`, `volume`, `mute`, `kill` (ein Programm beenden; System- und Desktop-Prozesse sind geschützt) und `music` (Spotify bzw. jeder MPRIS-Player über `playerctl`: abspielen, Pause, weiter, zurück, was läuft, Spotify öffnen). Beliebige Befehle sind nicht möglich. Nützliche Helfer: `checkupdates` (Arch, für die Update-Anzeige), `notify-send`, `wpctl`.
 
 ## E-Mail
 

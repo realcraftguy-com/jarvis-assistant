@@ -123,6 +123,7 @@ final class Homework {
         }
         eveningCheck(now);
         studyPlans();
+        quizCalls(now);
     }
 
     private void eveningCheck(ZonedDateTime now) {
@@ -200,11 +201,48 @@ final class Homework {
             }
             db.kvSet(key, start + "|" + String.join(",", ids));
             if (ids.isEmpty()) continue;
+            String qt = Cfg.get(ctx, "quiz_call");
+            if (qt != null && qt.matches("\\d{1,2}:\\d{2}"))
+                plan.append("Am Abend davor um ").append(qt).append(" rufe ich dich an und frage dich den Stoff ab.\n");
             plan.append("Ich erinnere dich jeweils. Passt die Uhrzeit nicht, sag Bescheid.");
             Outbox.enqueue(ctx, key + ":" + start, plan.toString(), null, null);
             db.insert("chat", Db.cv("ts", now, "channel", "text", "role", "assistant", "content", plan.toString()));
             db.log("I", "lernplan", "Lernplan angelegt: " + title);
         }
+    }
+
+    static final String QUIZ = "Prüfungs-Abfrage";
+
+    /** The evening before a test (setting quiz_call, e.g. 18:00): Jarvis calls and quizzes the user. */
+    private void quizCalls(ZonedDateTime now) {
+        String t = Cfg.get(ctx, "quiz_call");
+        if (t == null || !t.matches("\\d{1,2}:\\d{2}") || Cfg.inQuietHours(ctx, now) || CallLink.get(ctx).inCall()) return;
+        java.time.LocalTime at = java.time.LocalTime.parse(t.length() == 4 ? "0" + t : t);
+        long ms = System.currentTimeMillis();
+        for (ContentValues e : db.query("SELECT entry_key, title, start_ms, event_id FROM cal_map WHERE cancelled=0 AND entry_key NOT LIKE 'test:%' AND start_ms>? AND start_ms<?",
+                String.valueOf(ms), String.valueOf(ms + 48 * 3600_000L))) {
+            String title = e.getAsString("title");
+            if (title == null || !title.matches(EXAM)) continue;
+            LocalDate examDay = java.time.Instant.ofEpochMilli(e.getAsLong("start_ms")).atZone(java.time.ZoneOffset.UTC).toLocalDate();
+            ZonedDateTime callAt = examDay.minusDays(1).atTime(at).atZone(Cfg.ZONE);
+            if (now.isBefore(callAt) || now.isAfter(callAt.plusHours(3))) continue;
+            String key = "quiz:" + e.getAsString("entry_key") + ":" + examDay;
+            if (db.kv(key, null) != null) continue;
+            db.kvSet(key, String.valueOf(ms));
+            String topic = Brain.get(ctx).agent.topic(e.getAsLong("event_id"));
+            String reason = QUIZ + ": " + title + " morgen" + (topic == null ? "" : " – Thema " + topic);
+            db.log("I", "lernplan", "Abfrage-Anruf: " + Brain.get(ctx).requestCall(reason, 3, true, false));
+            return; // one call per evening
+        }
+    }
+
+    /** How the voice should run a quiz call (appended to the call instructions). */
+    static String quizInstruction(String reason) {
+        return "\n\nSo läuft die Abfrage: Sag kurz, worum es geht, und frag, ob er bereit ist. Dann stellst du nacheinander 6 bis 8 Fragen zum Thema "
+                + "(Niveau " + Cfg.peek("user_about") + ", bayerischer Lehrplan, gemischt leicht bis knifflig, bei Mathe kleine Rechenaufgaben, die man im Kopf "
+                + "oder mit Zettel lösen kann). Immer nur EINE Frage, dann warten. Nach jeder Antwort kurz: richtig oder falsch, bei falsch die richtige "
+                + "Lösung in einem Satz erklären. Bleib locker und motivierend, ein trockener Spruch ist erlaubt. Will er aufhören, hör auf. "
+                + "Am Ende: was gut saß, was er heute Abend noch wiederholen soll (höchstens zwei Punkte), und wünsch ihm viel Erfolg.";
     }
 
     static String day(String isoDate) {

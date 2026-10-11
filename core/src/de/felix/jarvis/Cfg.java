@@ -33,6 +33,7 @@ public final class Cfg {
             {"wake_call", "", "Weckanruf an Schultagen um (z. B. 06:40, leer = aus)"},
             {"hw_check", "18:30", "Hausaufgaben-Abfrage am Vorabend um"},
             {"study_plan", "1", "Lernplan vor Prüfungen (1/0)"},
+            {"quiz_call", "18:00", "Abfrage-Anruf am Abend vor Prüfungen um (leer = aus)"},
             {"quiet_start", "21:30", "Ruhezeit ab"},
             {"quiet_end", "07:00", "Ruhezeit bis"},
             {"call_enabled", "1", "Jarvis darf mich anrufen (1/0)"},
