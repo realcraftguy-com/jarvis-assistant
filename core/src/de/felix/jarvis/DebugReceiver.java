@@ -89,6 +89,11 @@ public class DebugReceiver extends BroadcastReceiver {
                         out = "persona " + all.length();
                         break;
                     }
+                    case "pccode": { // pairing code into a private file (read once by the setup script, then deleted)
+                        java.nio.file.Files.write(new java.io.File(c.getFilesDir(), "pc-code.txt").toPath(), PcLink.get(c).newPairingCode().getBytes("UTF-8"));
+                        out = "Code in Datei";
+                        break;
+                    }
                     case "stt": { // speech recognition of the last voice reply, under Telegram's file name
                         byte[] a = java.nio.file.Files.readAllBytes(new java.io.File(c.getCacheDir(), "jarvis-voice.ogg").toPath());
                         out = new Llm(c).transcribe(a, "file_42.oga");

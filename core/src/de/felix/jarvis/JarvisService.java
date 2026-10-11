@@ -64,6 +64,7 @@ public class JarvisService extends Service {
         new Thread(this::mainLoop, "jarvis-main").start();
         new Thread(this::telegramLoop, "jarvis-telegram").start();
         new Thread(this::linkLoop, "jarvis-link").start();
+        new Thread(this::pcLoop, "jarvis-pc").start();
         McpServer.start(this);
     }
 
@@ -132,6 +133,18 @@ public class JarvisService extends Service {
                 CallLink.get(this).runSubscriber(() -> alive);
             } catch (Throwable t) {
                 Db.get(this).kvSet("link_error", t.getMessage());
+            }
+            SystemClock.sleep(5000);
+        }
+    }
+
+    private void pcLoop() {
+        while (alive) {
+            try {
+                if (Cfg.paused(this)) { SystemClock.sleep(5000); continue; }
+                PcLink.get(this).runSubscriber(() -> alive);
+            } catch (Throwable t) {
+                Db.get(this).kvSet("pc_error", t.getMessage());
             }
             SystemClock.sleep(5000);
         }

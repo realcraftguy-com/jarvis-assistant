@@ -71,6 +71,8 @@ public final class Brain implements Telegram.Handler {
             new Grades(ctx).tick();
         }
         new Routines(ctx).tick();
+        try { new MailWatch(ctx).tick(); } catch (Exception e) { db.log("W", "mail", e.toString()); }
+        try { PcLink.get(ctx).tick(); } catch (Exception e) { db.log("W", "pc", e.toString()); }
         try { new CalendarWatch(ctx).tick(); } catch (Exception e) { db.log("W", "kalender", "Kalender-Wächter: " + e.getMessage()); }
         urgentCalls();
         new Briefing(ctx).tick();
@@ -328,6 +330,12 @@ public final class Brain implements Telegram.Handler {
     }
 
     @Override public void onOwnerButton(String data, long messageId, String callbackId) {
+        if (data.startsWith("pc:")) {
+            new Telegram(ctx).clearButtons(messageId);
+            String d = data;
+            new Thread(() -> Outbox.enqueue(ctx, "button:" + callbackId, PcLink.get(ctx).button(d), null, null), "pc-button").start();
+            return;
+        }
         if (data.startsWith("hw:")) {
             new Telegram(ctx).clearButtons(messageId);
             Outbox.enqueue(ctx, "button:" + callbackId, new Homework(ctx).button(data), null, null);

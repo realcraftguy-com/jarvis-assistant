@@ -27,6 +27,8 @@ public final class Cfg {
             {"briefing_enabled", "1", "Briefings von selbst schicken (1/0)"},
             {"briefing_morning", "06:45", "Morgen-Briefing an Schultagen um"},
             {"briefing_week", "18:30", "Wochenvorschau sonntags um"},
+            {"mail_address", "", "E-Mail-Adresse (Jarvis liest nur, verschickt nie etwas)"},
+            {"mail_imap", "", "IMAP-Server (leer = automatisch, z. B. imap.gmail.com)"},
             {"voice_replies", "spiegeln", "Sprachantworten in Telegram: spiegeln (auf Sprachnachricht), immer, aus"},
             {"wake_call", "", "Weckanruf an Schultagen um (z. B. 06:40, leer = aus)"},
             {"hw_check", "18:30", "Hausaufgaben-Abfrage am Vorabend um"},

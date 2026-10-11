@@ -123,8 +123,34 @@ def build(app: str):
     print(f"{out_apk}  ({out_apk.stat().st_size // 1024} KiB)")
 
 
+def build_pc():
+    """PC agent (plain Java, runs on the desktop): shared link code + org.json in one jar."""
+    work = OUT / "pc-work"
+    shutil.rmtree(work, ignore_errors=True)
+    (work / "classes").mkdir(parents=True)
+    jsonjar = fetch("org/json/json/20260814/json-20260814.jar", "a1d979d4b336516526d00ff423e4a8d4ba27670f")
+    srcs = [str(p) for p in (ROOT / "pc/src").rglob("*.java")] + [str(ROOT / "shared/src/de/felix/jarvis/shared/Link.java")]
+    run(JAVA_HOME / "bin/javac", "--release", "17", "-encoding", "UTF-8", "-cp", jsonjar, "-d", work / "classes", *srcs)
+    with zipfile.ZipFile(jsonjar) as z:
+        for n in z.namelist():
+            if n.startswith("org/") and n.endswith(".class"):
+                (work / "classes" / n).parent.mkdir(parents=True, exist_ok=True)
+                (work / "classes" / n).write_bytes(z.read(n))
+    out = OUT / "jarvis-pc.jar"
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\nMain-Class: de.felix.jarvis.pc.PcAgent\n")
+        for f in (work / "classes").rglob("*.class"):
+            z.write(f, str(f.relative_to(work / "classes")))
+    print(f"{out}  ({out.stat().st_size // 1024} KiB)")
+
+
 if __name__ == "__main__":
     targets = sys.argv[1:] or ["all"]
+    if "pc" in targets:
+        build_pc()
+        targets = [t for t in targets if t != "pc"]
+        if not targets:
+            sys.exit(0)
     for t in (["call", "core"] if "all" in targets else targets):
         build(t)
         if t == "call":

@@ -88,6 +88,9 @@ final class Briefing {
 
         if (school) b.append("\n== Offene Hausaufgaben (nächste 3 Tage) ==\n").append(new Homework(ctx).openSummary(3));
 
+        b.append("\n== E-Mails (letzte 24 h, ohne Werbung) ==\n").append(new MailWatch(ctx).recent(24, true));
+        if (PcLink.get(ctx).paired()) b.append("\n== PC ==\n").append(PcLink.get(ctx).online() ? "an" : "aus").append("\n");
+
         b.append("\n== Offen ==\n");
         for (ContentValues q : db.query("SELECT id, text FROM questions WHERE status='open' AND COALESCE(src_key,'') NOT LIKE 'test:%' ORDER BY id DESC LIMIT 5"))
             b.append("- Rückfrage #").append(q.getAsLong("id")).append(": ").append(SchoolPipeline.shorten(q.getAsString("text"), 140)).append("\n");

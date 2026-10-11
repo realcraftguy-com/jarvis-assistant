@@ -7,6 +7,8 @@ Jarvis läuft dauerhaft auf einem alten Android-Handy (ohne PC, ohne SIM) und k�
 - **Anrufe:** Eine eigene Anruf-App auf deinem Haupthandy. Jarvis klingelt wie ein normaler Kontakt in der Telefon-App und spricht mit einer natürlichen Stimme (Gemini Live).
 - **Ruft selbst an, wenn es dringend ist:** Prüfung morgen neu eingetragen, Termin abgesagt („Soll ich dir die freie Stunde blocken?“) usw.
 - **Hausaufgaben-Tracker** (aus EduPage plus selbst diktiert) mit Abfrage am Vorabend, **Lernplan vor Prüfungen**, **Vertretungsplan live**, **Noten mit Schnitt**, **Weckanruf mit Briefing**.
+- **PC im Blick:** Ein kleiner PC-Agent meldet Auslastung, Temperatur, Speicher, Updates und hängende Programme. Auf Zuruf fährt Jarvis den PC herunter, startet ihn neu, sperrt ihn, regelt die Lautstärke oder beendet ein hängendes Programm. Spätabends fragt er: „Dein PC läuft noch – soll ich ihn ausschalten?“
+- **E-Mails:** Jarvis liest dein Postfach (nur lesen), meldet wichtige Mails sofort mit Kurzfassung und packt den Rest ins Briefing. Werbung fliegt raus.
 - **Gehirn:** Claude (über dein eigenes Claude-Abo in Termux) oder kostenlos Groq. Groq springt ein, wenn das Claude-Limit erreicht ist.
 
 > Alles läuft ohne laufende Kosten (kostenlose Stufen von Groq, Gemini, Telegram, Open-Meteo). Es werden nirgends Zahlungsdaten hinterlegt.
@@ -94,6 +96,28 @@ Jarvis kann Claude über **dein eigenes Claude-Abo** nutzen. Dabei sieht Jarvis 
 
 Die Brücke läuft nur auf `127.0.0.1`. Claude bekommt **keine** eigenen Datei-, Shell- oder Web-Werkzeuge, nur die Jarvis-Werkzeuge (Kalender, Schule, Erinnerungen …).
 
+## PC-Agent (Linux)
+
+Der Agent ist ein kleines Java-Programm (`jarvis-pc.jar`, Java 17+), das über dieselbe Ende-zu-Ende-verschlüsselte Verbindung wie die Anruf-App mit Jarvis spricht.
+
+```bash
+java -jar jarvis-pc.jar pair JARVISPC1.…   # Code: Jarvis-App → Einstellungen → PC → „PC-Kopplungscode anzeigen“
+java -jar jarvis-pc.jar install            # richtet einen systemd-Benutzerdienst ein (startet bei jeder Anmeldung)
+java -jar jarvis-pc.jar status             # zeigt, was Jarvis sieht
+```
+
+Jarvis kann am PC **nur** diese Aktionen auslösen: `shutdown`, `reboot`, `suspend` (jeweils mit 60 Sekunden Warnung auf dem Bildschirm, abbrechbar), `cancel`, `lock`, `notify`, `volume`, `mute` und `kill` (ein Programm beenden; System- und Desktop-Prozesse sind geschützt). Beliebige Befehle sind nicht möglich. Nützliche Helfer: `checkupdates` (Arch, für die Update-Anzeige), `notify-send`, `wpctl`.
+
+## E-Mail
+
+In der Jarvis-App unter Einstellungen die Adresse (bei „Verhalten“) und unter „E-Mail“ das Passwort eintragen. Der IMAP-Server wird aus der Adresse erkannt (Gmail, GMX, web.de, T-Online, Yahoo, iCloud …).
+
+- **Gmail:** 2-Faktor-Anmeldung einschalten, dann unter Google-Konto → Sicherheit → **App-Passwörter** eines erstellen und das eintragen.
+- **GMX / web.de:** In den Mail-Einstellungen „POP3/IMAP-Abruf“ erlauben.
+- **Outlook/Hotmail:** Microsoft erlaubt dafür kein einfaches Passwort mehr – geht derzeit nicht.
+
+Jarvis liest nur (Mails bleiben ungelesen), verschickt, löscht und verschiebt nie etwas. Mail-Inhalte gelten als Daten, nicht als Befehle.
+
 ## Bauen
 
 Ohne Gradle, direkt mit dem Android-SDK:
@@ -102,6 +126,7 @@ Ohne Gradle, direkt mit dem Android-SDK:
 # Voraussetzungen: JDK 21, Android SDK (build-tools 36.0.0, platform android-36)
 python3 tools/build.py call    # baut die Anruf-App und bettet sie in Jarvis ein
 python3 tools/build.py core    # baut Jarvis
+python3 tools/build.py pc      # baut den PC-Agenten (build/jarvis-pc.jar)
 ```
 
 Ergebnis: `build/jarvis-core.apk` und `build/jarvis-call.apk`. Beim ersten Bauen wird ein eigener Signierschlüssel unter `~/.config/jarvis-build/` angelegt. Er liegt nicht im Repository.

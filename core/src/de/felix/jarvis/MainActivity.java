@@ -532,6 +532,26 @@ public class MainActivity extends Activity {
         })));
         content.addView(ca);
 
+        content.addView(Ui.title(this, "E-Mail"));
+        LinearLayout ml = Ui.card(this);
+        ml.addView(Ui.text(this, "Adresse unten bei „Verhalten“ eintragen, hier das Passwort. Gmail: App-Passwort (Google-Konto → Sicherheit → "
+                + "2-Faktor an → App-Passwörter). GMX/web.de: IMAP in den Mail-Einstellungen erlauben. Jarvis liest nur.", 13, Ui.MUTED));
+        secretField(ml, "E-Mail-Passwort / App-Passwort", MailWatch.PASSWORD, () -> async(() -> new MailWatch(this).test()));
+        String me = db.kv("mail_error", null);
+        ml.addView(Ui.text(this, !new MailWatch(this).configured() ? "Nicht eingerichtet." : me != null ? "Fehler: " + me
+                : "Zuletzt geprüft: " + Ui.ago(db.kvLong("mail_ok_at", 0)), 13, Ui.TEXT));
+        content.addView(ml);
+
+        content.addView(Ui.title(this, "PC"));
+        LinearLayout pcc = Ui.card(this);
+        PcLink pl = PcLink.get(this);
+        pcc.addView(Ui.text(this, pl.paired() ? "Gekoppelt mit „" + db.kv("pc_name", "PC") + "“ – " + (pl.online() ? "an." : "aus/offline.")
+                : "Auf dem PC jarvis-pc.jar starten: java -jar jarvis-pc.jar pair CODE, danach java -jar jarvis-pc.jar install.", 14, Ui.TEXT));
+        pcc.addView(Ui.button(this, "PC-Kopplungscode anzeigen", Ui.ACCENT, v -> async(() -> {
+            try { return PcLink.get(this).newPairingCode(); } catch (Exception e) { return "Fehlgeschlagen: " + e.getMessage(); }
+        })));
+        content.addView(pcc);
+
         content.addView(Ui.title(this, "Verhalten"));
         LinearLayout s = Ui.card(this);
         for (String[] fld : Cfg.FIELDS) {
