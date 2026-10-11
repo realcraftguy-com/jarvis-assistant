@@ -17,7 +17,7 @@ public class DebugReceiver extends BroadcastReceiver {
         if ((c.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) == 0) return;
         String cmd = i.getStringExtra("cmd");
         String text = i.getStringExtra("text");
-        PendingResult pr = goAsync();
+        // long jobs (Claude, searches) must not hold the broadcast: Android would treat > 60 s as "not responding"
         new Thread(() -> {
             String out;
             long t0 = System.currentTimeMillis();
@@ -109,6 +109,27 @@ public class DebugReceiver extends BroadcastReceiver {
                         break;
                     }
                     case "vision": out = Vision.describe(c, java.nio.file.Files.readAllBytes(new java.io.File(c.getFilesDir(), "test-blatt.jpg").toPath()), "image/jpeg", text); break;
+                    case "gtest": { // which Gemini features work on this (free) key: text|model|mode
+                        String[] p = text.split("\\|", 2);
+                        java.util.Map<String, String> h = new java.util.HashMap<>();
+                        h.put("x-goog-api-key", Secrets.get(c, Secrets.GEMINI));
+                        JSONObject req = new JSONObject().put("contents", new org.json.JSONArray().put(new JSONObject().put("parts",
+                                new org.json.JSONArray().put(new JSONObject().put("text", p[1])))));
+                        if (p[0].contains("image")) req.put("generationConfig", new JSONObject().put("responseModalities", new org.json.JSONArray().put("TEXT").put("IMAGE")));
+                        if (p[0].startsWith("yt:")) { // yt:model|url|question
+                            p[0] = p[0].substring(3);
+                            String[] q = p[1].split("\\|", 2);
+                            req = new JSONObject().put("contents", new org.json.JSONArray().put(new JSONObject().put("parts", new org.json.JSONArray()
+                                    .put(new JSONObject().put("file_data", new JSONObject().put("file_uri", q[0])))
+                                    .put(new JSONObject().put("text", q[1])))));
+                        }
+                        if (p[0].startsWith("search:")) { p[0] = p[0].substring(7); req.put("tools", new org.json.JSONArray().put(new JSONObject().put("google_search", new JSONObject()))); }
+                        long g0 = System.currentTimeMillis();
+                        Http.Resp r = Http.postJson("https://generativelanguage.googleapis.com/v1beta/models/" + p[0] + ":generateContent", h, req.toString(), 90000);
+                        String body = r.body.replaceAll("\"data\":\\s*\"[^\"]{100,}\"", "\"data\":\"<BILD>\"");
+                        out = p[0] + " HTTP " + r.code + " (" + (System.currentTimeMillis() - g0) + " ms): " + (body.length() > 600 ? body.substring(0, 600) : body);
+                        break;
+                    }
                     case "maildry": out = new MailWatch(c).check(3); break;
                     case "stt": { // speech recognition of the last voice reply, under Telegram's file name
                         byte[] a = java.nio.file.Files.readAllBytes(new java.io.File(c.getCacheDir(), "jarvis-voice.ogg").toPath());
@@ -135,7 +156,6 @@ public class DebugReceiver extends BroadcastReceiver {
                 out = "Fehler: " + e;
             }
             Db.get(c).log("I", "debug", cmd + " (" + (System.currentTimeMillis() - t0) + " ms) → " + out.replace("\n", " | "));
-            pr.finish();
         }).start();
     }
 }

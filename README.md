@@ -6,6 +6,7 @@ Jarvis läuft dauerhaft auf einem alten Android-Handy (ohne PC, ohne SIM) und k�
 - **Telegram:** Jarvis schreibt dir (Briefings, Änderungen, Rückfragen) und versteht Text und Sprachnachrichten.
 - **Anrufe:** Eine eigene Anruf-App auf deinem Haupthandy. Jarvis klingelt wie ein normaler Kontakt in der Telefon-App und spricht mit einer natürlichen Stimme (Gemini Live).
 - **Ruft selbst an, wenn es dringend ist:** Prüfung morgen neu eingetragen, Termin abgesagt („Soll ich dir die freie Stunde blocken?“) usw.
+- **Spezialisten für jede Aufgabe:** Claude denkt und codet, Gemini sucht im Web (Google) und fasst YouTube-Videos zusammen, ein kostenloser Bildgenerator malt Bilder („Mach mir ein Bild von …“). Längerer Code kommt als Datei.
 - **Fotos verstehen:** Foto vom Arbeitsblatt, der Tafel oder der Vokabelliste in Telegram schicken – Jarvis liest es (Gemini) und erklärt die Aufgabe Schritt für Schritt, trägt Hausaufgaben ein oder speichert Vokabeln.
 - **Vokabeltrainer:** tägliche kurze Abfrage im Chat (Karteikasten-Prinzip: was nicht sitzt, kommt öfter).
 - **Packliste:** vor Ausflügen und Fahrten eine kurze Liste mit dem, was die Schule verlangt, und dem, was das Wetter nahelegt; am Vorabend „Tasche gepackt?“.
@@ -124,6 +125,18 @@ In der Jarvis-App unter Einstellungen die Adresse (bei „Verhalten“) und unte
 - **Outlook/Hotmail:** Microsoft erlaubt dafür kein einfaches Passwort mehr – geht derzeit nicht.
 
 Jarvis liest nur (Mails bleiben ungelesen), verschickt, löscht und verschiebt nie etwas. Mail-Inhalte gelten als Daten, nicht als Befehle.
+
+## Kostenlose Dienste
+
+| Aufgabe | Dienst | Hinweis |
+|---|---|---|
+| Denken, Code | Claude (dein Abo) oder Groq | siehe `brain` |
+| Fotos lesen | Gemini (`vision_model`) | kostenloses Kontingent |
+| Websuche, YouTube | Gemini mit Google-Suche (`search_model`) | kostenloses Kontingent |
+| Bilder erzeugen | [Pollinations](https://pollinations.ai) | ohne Konto, Bilder privat (nicht im öffentlichen Feed). Gemini-Bildmodelle sind im Gratis-Kontingent nicht enthalten. |
+| Wetter | Open-Meteo | ohne Konto |
+
+Bildbeschreibungen gehen an einen externen Dienst – nichts Persönliches hineinschreiben.
 
 ## Bauen
 

@@ -36,6 +36,7 @@ public final class Cfg {
             {"quiz_call", "18:00", "Abfrage-Anruf am Abend vor Prüfungen um (leer = aus)"},
             {"vocab_time", "17:00", "Vokabel-Erinnerung täglich um (leer = aus)"},
             {"vision_model", "gemini-flash-latest", "Modell zum Lesen von Fotos (Gemini)"},
+            {"search_model", "gemini-2.5-flash", "Modell für Websuche und YouTube (Gemini, mit Google-Suche)"},
             {"quiet_start", "21:30", "Ruhezeit ab"},
             {"quiet_end", "07:00", "Ruhezeit bis"},
             {"call_enabled", "1", "Jarvis darf mich anrufen (1/0)"},

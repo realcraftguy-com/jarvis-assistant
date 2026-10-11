@@ -115,6 +115,30 @@ public final class Telegram {
         if (!r.ok()) throw new Exception("Telegram sendVoice HTTP " + r.code + " " + SchoolPipeline.shorten(r.body, 120));
     }
 
+    /** Upload to the owner: method sendPhoto/sendDocument, field photo/document. */
+    private void upload(String method, String field, java.io.File f, String caption, String type) throws Exception {
+        String chat = db.kv("tg_owner_chat", null);
+        if (chat == null) throw new IllegalStateException("Telegram noch nicht gekoppelt");
+        String boundary = "----jarvis" + System.nanoTime();
+        java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream ps = new java.io.PrintStream(bo, true, "UTF-8");
+        ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n" + chat + "\r\n");
+        if (caption != null && !caption.isEmpty()) ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n" + caption + "\r\n");
+        ps.print("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + field + "\"; filename=\"" + f.getName() + "\"\r\nContent-Type: " + type + "\r\n\r\n");
+        ps.flush();
+        bo.write(java.nio.file.Files.readAllBytes(f.toPath()));
+        ps.print("\r\n--" + boundary + "--\r\n");
+        ps.flush();
+        java.util.HashMap<String, String> h = new java.util.HashMap<>();
+        h.put("Content-Type", "multipart/form-data; boundary=" + boundary);
+        Http.Resp r = Http.request("POST", API + token() + "/" + method, h, bo.toByteArray(), 120000);
+        if (!r.ok()) throw new Exception("Telegram " + method + " HTTP " + r.code + " " + SchoolPipeline.shorten(r.body, 120));
+    }
+
+    public void sendPhoto(java.io.File f, String caption) throws Exception { upload("sendPhoto", "photo", f, caption, "image/jpeg"); }
+
+    public void sendFile(java.io.File f, String caption, String type) throws Exception { upload("sendDocument", "document", f, caption, type); }
+
     /** Sends a file (e.g. the call app APK) to the owner. */
     public void sendDocument(java.io.File f, String caption) throws Exception {
         String chat = db.kv("tg_owner_chat", null);
