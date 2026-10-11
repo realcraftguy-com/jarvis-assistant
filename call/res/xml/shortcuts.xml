@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="call_jarvis" android:enabled="true" android:icon="@drawable/ic_launcher"
+        android:shortcutShortLabel="@string/quick_call" android:shortcutLongLabel="@string/quick_call">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="de.felix.jarvis.call" android:targetClass="de.felix.jarvis.call.QuickCallActivity" />
+    </shortcut>
+</shortcuts>

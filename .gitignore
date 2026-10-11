@@ -1,0 +1,4 @@
+build/
+core/assets/jarvis-call.apk
+*.keystore
+.claude/
